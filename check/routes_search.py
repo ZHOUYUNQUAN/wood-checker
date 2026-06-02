@@ -229,6 +229,8 @@ def export_csv():
             'no': row['no'] or '',
             'especie': row['especie'] or '',
             'english_code': row['english_code'] or '',
+            'original_diameter': row['diameter_avg'] or '',
+            'original_length': row['length_m'] or '',
             'original_volume': cr.get('original_volume', 0),
             'new_volume': cr.get('new_volume', 0),
             'diff': cr.get('diff', 0),
@@ -244,11 +246,13 @@ def export_csv():
     # 生成 CSV
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(['编号', '材种', '英文代码', '原材积', '新材积',
-                      '涨尺量', '涨尺率(%)', '标准', '计算直径(CM)', '计算长度(M)'])
+    writer.writerow(['编号', '材种', '英文代码', '原始直径(CM)', '原始长度(M)',
+                      '原材积', '新材积', '涨尺量', '涨尺率(%)', '标准',
+                      '计算直径(CM)', '计算长度(M)'])
     for r in output_rows:
         writer.writerow([
             r['no'], r['especie'], r['english_code'],
+            r['original_diameter'], r['original_length'],
             r['original_volume'], r['new_volume'],
             r['diff'], r['rate'], r['standard'],
             r['diameter_used'], r['length_used'],
