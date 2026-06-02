@@ -2,6 +2,8 @@
 木材检尺对比系统 - 检索与计算路由
 处理编号搜索、材积计算等核心功能
 """
+import logging
+
 from flask import render_template, request, jsonify
 
 from models import get_db, _validate_table_name
@@ -12,6 +14,8 @@ from .utils import (
     calc_external_standard,
     calc_national_standard,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @check_bp.route('/')

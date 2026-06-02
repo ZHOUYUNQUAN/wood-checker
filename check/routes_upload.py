@@ -2,6 +2,7 @@
 木材检尺对比系统 - 上传相关路由
 处理 Excel 上传、文件管理（删除/重命名）等
 """
+import logging
 import os
 from datetime import datetime
 
@@ -18,6 +19,8 @@ from .utils import (
     parse_row,
     get_all_files,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @check_bp.route('/upload', methods=['POST'])
@@ -73,6 +76,7 @@ def upload():
 
         wb.close()
     except Exception as e:
+        logger.exception(f'Excel 解析失败: {filename}')
         return jsonify({'ok': False, 'error': f'Excel 解析失败: {str(e)}'}), 400
 
     if not any(h for h in headers):
@@ -117,6 +121,7 @@ def preview_sheet():
         headers = read_headers(ws)
         wb.close()
     except Exception as e:
+        logger.exception(f'Excel 解析失败 (preview_sheet): {file_key}')
         return jsonify({'ok': False, 'error': f'Excel 解析失败: {str(e)}'}), 400
 
     return jsonify({
@@ -170,6 +175,7 @@ def upload_confirm():
         rows = list(ws.iter_rows(min_row=2, values_only=True))
         wb.close()
     except Exception as e:
+        logger.exception(f'Excel 解析失败 (confirm): {file_key}')
         return jsonify({'ok': False, 'error': f'Excel 解析失败: {str(e)}'}), 400
 
     records = []
@@ -250,6 +256,8 @@ def upload_confirm():
     conn.close()
 
     # 生成列映射摘要（字段名 → 表头文本）
+    logger.info(f'成功导入: {file_key}, {len(records)} 条记录, 表 {table_name}')
+
     col_summary = {}
     for field, idx in col_mapping.items():
         if idx is not None and idx < len(headers):
@@ -312,6 +320,7 @@ def delete_file():
     except OSError:
         pass
 
+    logger.info(f'已删除文件: {file_name}, {count} 条数据')
     return jsonify({'ok': True, 'deleted_count': count, 'message': f'已删除文件 {file_name} 及其 {count} 条数据'})
 
 
@@ -351,4 +360,5 @@ def rename_file():
     conn.commit()
     conn.close()
 
+    logger.info(f'已重命名文件: {old_name} -> {new_name}')
     return jsonify({'ok': True, 'old_name': old_name, 'new_name': new_name, 'message': f'已重命名为 "{new_name}"'})
