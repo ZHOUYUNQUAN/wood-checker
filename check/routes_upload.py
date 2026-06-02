@@ -43,20 +43,19 @@ def upload():
     os.makedirs(upload_folder, exist_ok=True)
 
     # 防止不同原始文件名 secure_filename 后同名冲突：自动追加 _2, _3 ...
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute('SELECT id FROM file_registry WHERE file_name = ?', (filename,))
-    if cursor.fetchone():
-        base, ext = os.path.splitext(filename)
-        counter = 2
-        while True:
-            new_name = f'{base}_{counter}{ext}'
-            cursor.execute('SELECT id FROM file_registry WHERE file_name = ?', (new_name,))
-            if not cursor.fetchone() and not os.path.exists(os.path.join(upload_folder, new_name)):
-                filename = new_name
-                break
-            counter += 1
-    conn.close()
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM file_registry WHERE file_name = ?', (filename,))
+        if cursor.fetchone():
+            base, ext = os.path.splitext(filename)
+            counter = 2
+            while True:
+                new_name = f'{base}_{counter}{ext}'
+                cursor.execute('SELECT id FROM file_registry WHERE file_name = ?', (new_name,))
+                if not cursor.fetchone() and not os.path.exists(os.path.join(upload_folder, new_name)):
+                    filename = new_name
+                    break
+                counter += 1
 
     file_path = safe_upload_path(filename)
     if not file_path:
@@ -192,68 +191,67 @@ def upload_confirm():
     rand_suffix = os.urandom(4).hex()
     table_name = f'sheets_{timestamp}_{rand_suffix}'
 
-    conn = get_db()
-    cursor = conn.cursor()
+    with get_db() as conn:
+        cursor = conn.cursor()
 
-    # 如果 file_key 已在 registry 中（重新上传同名文件），先清理旧表
-    cursor.execute('SELECT table_name FROM file_registry WHERE id = ?', (file_key,))
-    old = cursor.fetchone()
-    if old:
-        _validate_table_name(old['table_name'])
-        cursor.execute(f'DROP TABLE IF EXISTS "{old["table_name"]}"')
+        # 如果 file_key 已在 registry 中（重新上传同名文件），先清理旧表
+        cursor.execute('SELECT table_name FROM file_registry WHERE id = ?', (file_key,))
+        old = cursor.fetchone()
+        if old:
+            _validate_table_name(old['table_name'])
+            cursor.execute(f'DROP TABLE IF EXISTS "{old["table_name"]}"')
 
-    _validate_table_name(table_name)
-    # 创建独立数据表
-    cursor.execute(f'''
-        CREATE TABLE IF NOT EXISTS "{table_name}" (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            no TEXT,
-            especie TEXT,
-            english_code TEXT,
-            diameter_1 REAL,
-            diameter_2 REAL,
-            diameter_3 REAL,
-            diameter_4 REAL,
-            diameter_avg REAL,
-            length_m REAL,
-            volume_m3 REAL,
-            customer TEXT,
-            is_transshipment INTEGER DEFAULT 0
-        )
-    ''')
-
-    cursor.execute(f'''
-        CREATE INDEX IF NOT EXISTS idx_{table_name}_no ON "{table_name}"(no)
-    ''')
-
-    upload_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-    # 批量插入数据
-    for rec in records:
+        _validate_table_name(table_name)
+        # 创建独立数据表
         cursor.execute(f'''
-            INSERT INTO "{table_name}"
-                (no, especie, english_code,
-                 diameter_1, diameter_2, diameter_3, diameter_4,
-                 diameter_avg, length_m, volume_m3, customer, is_transshipment)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            rec['no'], rec['especie'], rec['english_code'],
-            rec['diameter_1'], rec['diameter_2'], rec['diameter_3'], rec['diameter_4'],
-            rec['diameter_avg'], rec['length_m'], rec['volume_m3'],
-            rec['customer'], rec['is_transshipment'],
-        ))
+            CREATE TABLE IF NOT EXISTS "{table_name}" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                no TEXT,
+                especie TEXT,
+                english_code TEXT,
+                diameter_1 REAL,
+                diameter_2 REAL,
+                diameter_3 REAL,
+                diameter_4 REAL,
+                diameter_avg REAL,
+                length_m REAL,
+                volume_m3 REAL,
+                customer TEXT,
+                is_transshipment INTEGER DEFAULT 0
+            )
+        ''')
 
-    # 写入 registry
-    cursor.execute('''
-        INSERT OR REPLACE INTO file_registry (id, file_name, table_name, row_count, upload_time)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (file_key, file_key, table_name, len(records), upload_time))
+        cursor.execute(f'''
+            CREATE INDEX IF NOT EXISTS idx_{table_name}_no ON "{table_name}"(no)
+        ''')
 
-    # 同时清理旧 code_sheets 中可能存在的同名数据（向后兼容过渡期）
-    cursor.execute('DELETE FROM code_sheets WHERE file_name = ?', (file_key,))
+        upload_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    conn.commit()
-    conn.close()
+        # 批量插入数据
+        for rec in records:
+            cursor.execute(f'''
+                INSERT INTO "{table_name}"
+                    (no, especie, english_code,
+                     diameter_1, diameter_2, diameter_3, diameter_4,
+                     diameter_avg, length_m, volume_m3, customer, is_transshipment)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                rec['no'], rec['especie'], rec['english_code'],
+                rec['diameter_1'], rec['diameter_2'], rec['diameter_3'], rec['diameter_4'],
+                rec['diameter_avg'], rec['length_m'], rec['volume_m3'],
+                rec['customer'], rec['is_transshipment'],
+            ))
+
+        # 写入 registry
+        cursor.execute('''
+            INSERT OR REPLACE INTO file_registry (id, file_name, table_name, row_count, upload_time)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (file_key, file_key, table_name, len(records), upload_time))
+
+        # 同时清理旧 code_sheets 中可能存在的同名数据（向后兼容过渡期）
+        cursor.execute('DELETE FROM code_sheets WHERE file_name = ?', (file_key,))
+
+        conn.commit()
 
     # 生成列映射摘要（字段名 → 表头文本）
     logger.info(f'成功导入: {file_key}, {len(records)} 条记录, 表 {table_name}')
@@ -288,28 +286,27 @@ def delete_file():
 
     file_name = data['file_name']
 
-    conn = get_db()
-    cursor = conn.cursor()
+    with get_db() as conn:
+        cursor = conn.cursor()
 
-    # 尝试 registry 路径
-    cursor.execute('SELECT table_name FROM file_registry WHERE file_name = ?', (file_name,))
-    reg_row = cursor.fetchone()
+        # 尝试 registry 路径
+        cursor.execute('SELECT table_name FROM file_registry WHERE file_name = ?', (file_name,))
+        reg_row = cursor.fetchone()
 
-    if reg_row:
-        table_name = reg_row['table_name']
-        _validate_table_name(table_name)
-        cursor.execute(f'SELECT COUNT(*) as cnt FROM "{table_name}"')
-        count = cursor.fetchone()['cnt']
-        cursor.execute(f'DROP TABLE IF EXISTS "{table_name}"')
-        cursor.execute('DELETE FROM file_registry WHERE file_name = ?', (file_name,))
-    else:
-        # 旧表路径
-        cursor.execute('SELECT COUNT(*) as cnt FROM code_sheets WHERE file_name = ?', (file_name,))
-        count = cursor.fetchone()['cnt']
-        cursor.execute('DELETE FROM code_sheets WHERE file_name = ?', (file_name,))
+        if reg_row:
+            table_name = reg_row['table_name']
+            _validate_table_name(table_name)
+            cursor.execute(f'SELECT COUNT(*) as cnt FROM "{table_name}"')
+            count = cursor.fetchone()['cnt']
+            cursor.execute(f'DROP TABLE IF EXISTS "{table_name}"')
+            cursor.execute('DELETE FROM file_registry WHERE file_name = ?', (file_name,))
+        else:
+            # 旧表路径
+            cursor.execute('SELECT COUNT(*) as cnt FROM code_sheets WHERE file_name = ?', (file_name,))
+            count = cursor.fetchone()['cnt']
+            cursor.execute('DELETE FROM code_sheets WHERE file_name = ?', (file_name,))
 
-    conn.commit()
-    conn.close()
+        conn.commit()
 
     # 尝试删除上传目录中的文件（允许失败）
     upload_folder = current_app.config['UPLOAD_FOLDER']
@@ -339,26 +336,23 @@ def rename_file():
     if not new_name:
         return jsonify({'ok': False, 'error': '新文件名不能为空'}), 400
 
-    conn = get_db()
-    cursor = conn.cursor()
+    with get_db() as conn:
+        cursor = conn.cursor()
 
-    # 检查旧名是否存在
-    cursor.execute('SELECT id FROM file_registry WHERE file_name = ?', (old_name,))
-    row = cursor.fetchone()
-    if not row:
-        conn.close()
-        return jsonify({'ok': False, 'error': f'文件 "{old_name}" 不存在，仅支持重命名新格式文件'}), 404
+        # 检查旧名是否存在
+        cursor.execute('SELECT id FROM file_registry WHERE file_name = ?', (old_name,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'ok': False, 'error': f'文件 "{old_name}" 不存在，仅支持重命名新格式文件'}), 404
 
-    # 检查新名是否冲突
-    cursor.execute('SELECT id FROM file_registry WHERE file_name = ?', (new_name,))
-    conflict = cursor.fetchone()
-    if conflict and conflict['id'] != row['id']:
-        conn.close()
-        return jsonify({'ok': False, 'error': f'文件名 "{new_name}" 已存在'}), 409
+        # 检查新名是否冲突
+        cursor.execute('SELECT id FROM file_registry WHERE file_name = ?', (new_name,))
+        conflict = cursor.fetchone()
+        if conflict and conflict['id'] != row['id']:
+            return jsonify({'ok': False, 'error': f'文件名 "{new_name}" 已存在'}), 409
 
-    cursor.execute('UPDATE file_registry SET file_name = ? WHERE id = ?', (new_name, row['id']))
-    conn.commit()
-    conn.close()
+        cursor.execute('UPDATE file_registry SET file_name = ? WHERE id = ?', (new_name, row['id']))
+        conn.commit()
 
     logger.info(f'已重命名文件: {old_name} -> {new_name}')
     return jsonify({'ok': True, 'old_name': old_name, 'new_name': new_name, 'message': f'已重命名为 "{new_name}"'})

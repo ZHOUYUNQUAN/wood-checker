@@ -34,31 +34,30 @@ def search():
     if not q:
         return jsonify({'ok': False, 'error': '搜索关键词不能为空'}), 400
 
-    conn = get_db()
-    cursor = conn.cursor()
+    with get_db() as conn:
+        cursor = conn.cursor()
 
-    if file_name:
-        table_name, in_registry = resolve_table(cursor, file_name)
-        if in_registry and table_name:
-            _validate_table_name(table_name)
-            cursor.execute(f'SELECT * FROM "{table_name}" WHERE no LIKE ? ORDER BY no LIMIT 200', (f'%{q}%',))
+        if file_name:
+            table_name, in_registry = resolve_table(cursor, file_name)
+            if in_registry and table_name:
+                _validate_table_name(table_name)
+                cursor.execute(f'SELECT * FROM "{table_name}" WHERE no LIKE ? ORDER BY no LIMIT 200', (f'%{q}%',))
+            else:
+                cursor.execute('''
+                    SELECT * FROM code_sheets
+                    WHERE no LIKE ? AND file_name = ?
+                    ORDER BY no
+                    LIMIT 200
+                ''', (f'%{q}%', file_name))
         else:
             cursor.execute('''
                 SELECT * FROM code_sheets
-                WHERE no LIKE ? AND file_name = ?
+                WHERE no LIKE ?
                 ORDER BY no
                 LIMIT 200
-            ''', (f'%{q}%', file_name))
-    else:
-        cursor.execute('''
-            SELECT * FROM code_sheets
-            WHERE no LIKE ?
-            ORDER BY no
-            LIMIT 200
-        ''', (f'%{q}%',))
+            ''', (f'%{q}%',))
 
-    records = [dict(row) for row in cursor.fetchall()]
-    conn.close()
+        records = [dict(row) for row in cursor.fetchall()]
 
     return jsonify({'ok': True, 'records': records, 'count': len(records)})
 
@@ -81,21 +80,20 @@ def calc():
     if standard not in ('national', 'external'):
         return jsonify({'ok': False, 'error': '标准参数无效，可选 national 或 external'}), 400
 
-    conn = get_db()
-    cursor = conn.cursor()
+    with get_db() as conn:
+        cursor = conn.cursor()
 
-    if file_name:
-        table_name, in_registry = resolve_table(cursor, file_name)
-        if in_registry and table_name:
-            _validate_table_name(table_name)
-            cursor.execute(f'SELECT * FROM "{table_name}" WHERE id = ?', (record_id,))
+        if file_name:
+            table_name, in_registry = resolve_table(cursor, file_name)
+            if in_registry and table_name:
+                _validate_table_name(table_name)
+                cursor.execute(f'SELECT * FROM "{table_name}" WHERE id = ?', (record_id,))
+            else:
+                cursor.execute('SELECT * FROM code_sheets WHERE id = ?', (record_id,))
         else:
             cursor.execute('SELECT * FROM code_sheets WHERE id = ?', (record_id,))
-    else:
-        cursor.execute('SELECT * FROM code_sheets WHERE id = ?', (record_id,))
 
-    row = cursor.fetchone()
-    conn.close()
+        row = cursor.fetchone()
 
     if not row:
         return jsonify({'ok': False, 'error': '记录不存在'}), 404

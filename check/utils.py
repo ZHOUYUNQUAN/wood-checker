@@ -159,33 +159,32 @@ def calc_national_standard(diameter, length):
 
 def get_all_files():
     """返回合并后的文件列表：优先取 file_registry，再补 code_sheets 中未被迁移的旧文件"""
-    conn = get_db()
-    cursor = conn.cursor()
+    with get_db() as conn:
+        cursor = conn.cursor()
 
-    cursor.execute('SELECT id, file_name, row_count, upload_time FROM file_registry ORDER BY upload_time DESC')
-    registry_files = [dict(row) for row in cursor.fetchall()]
-    registry_names = {f['file_name'] for f in registry_files}
+        cursor.execute('SELECT id, file_name, row_count, upload_time FROM file_registry ORDER BY upload_time DESC')
+        registry_files = [dict(row) for row in cursor.fetchall()]
+        registry_names = {f['file_name'] for f in registry_files}
 
-    # 补上还在旧 code_sheets 中但未迁移到 registry 的文件
-    if registry_names:
-        placeholders = ','.join(['?' for _ in registry_names])
-        cursor.execute(f'''
-            SELECT file_name, COUNT(*) as row_count, MAX(upload_time) as upload_time
-            FROM code_sheets
-            WHERE file_name NOT IN ({placeholders})
-            GROUP BY file_name
-            ORDER BY MAX(upload_time) DESC
-        ''', tuple(registry_names))
-    else:
-        cursor.execute('''
-            SELECT file_name, COUNT(*) as row_count, MAX(upload_time) as upload_time
-            FROM code_sheets
-            GROUP BY file_name
-            ORDER BY MAX(upload_time) DESC
-        ''')
-    legacy_files = [dict(row) for row in cursor.fetchall()]
+        # 补上还在旧 code_sheets 中但未迁移到 registry 的文件
+        if registry_names:
+            placeholders = ','.join(['?' for _ in registry_names])
+            cursor.execute(f'''
+                SELECT file_name, COUNT(*) as row_count, MAX(upload_time) as upload_time
+                FROM code_sheets
+                WHERE file_name NOT IN ({placeholders})
+                GROUP BY file_name
+                ORDER BY MAX(upload_time) DESC
+            ''', tuple(registry_names))
+        else:
+            cursor.execute('''
+                SELECT file_name, COUNT(*) as row_count, MAX(upload_time) as upload_time
+                FROM code_sheets
+                GROUP BY file_name
+                ORDER BY MAX(upload_time) DESC
+            ''')
+        legacy_files = [dict(row) for row in cursor.fetchall()]
 
-    conn.close()
     return registry_files + legacy_files
 
 
