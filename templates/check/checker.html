@@ -91,9 +91,12 @@
 
 <!-- ========== 搜索区（初始隐藏） ========== -->
 <div class="card mb-4" id="search-card" style="display:none;">
-    <div class="card-header">
-        <strong>搜索木材</strong>
-        <small id="current-file-label" class="text-primary ml-2"></small>
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <strong>搜索木材</strong>
+            <small id="current-file-label" class="text-primary ml-2"></small>
+        </div>
+        <button class="btn btn-sm btn-outline-success" id="export-btn" style="display:none;">导出 CSV</button>
     </div>
     <div class="card-body">
         <div class="input-group">
@@ -155,6 +158,8 @@
                 <div class="row" id="detail-diameters"></div>
                 <hr>
                 </div>
+                <!-- 上次计算结果 -->
+                <div id="detail-calc-history" class="alert alert-info" style="display:none;"></div>
                 <!-- 材积计算区 -->
                 <h6 class="text-muted mb-3">材积对比计算</h6>
                 <form id="calc-form">

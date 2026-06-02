@@ -129,6 +129,13 @@
             $('#col-map-tbody .col-field-select').removeClass('border-info');
         });
 
+        // 导出按钮
+        $('#export-btn').on('click', function () {
+            if (currentFileName) {
+                window.open(PREFIX + '/export?file_name=' + encodeURIComponent(currentFileName), '_blank');
+            }
+        });
+
         // ===== 折叠面板 =====
         $('#toggle-panel-btn').on('click', function () {
             var panel = $('#data-panel');
@@ -468,6 +475,7 @@
     function showSearchCard(filename) {
         $('#search-card').show();
         $('#current-file-label').text('当前文件: ' + filename);
+        $('#export-btn').show();
     }
 
     // ========== 搜索 ==========
@@ -555,6 +563,7 @@
 
     function showDetail(data) {
         $('#calc-result').hide();
+        $('#detail-calc-history').hide();
         $('#calc-record-id').val(data.id);
 
         // 获取完整记录以读取 extra_json，用于判断哪些字段被映射
@@ -617,6 +626,9 @@
                 $('#detail-diameters-section').hide();
             }
 
+            // 显示上次保存的计算结果
+            showSavedCalcResult(record);
+
             // 计算区 placeholder
             $('#calc-length').attr('placeholder', '默认 ' + record.length_m);
             var diaPlaceholder = '默认 ' + record.diameter_avg;
@@ -633,6 +645,38 @@
             $('#calc-length').val('');
             $('#calc-diameters').val('');
         });
+    }
+
+    // ========== 显示上次保存的计算结果 ==========
+    function showSavedCalcResult(record) {
+        var extra = {};
+        try {
+            if (record.extra_json) {
+                extra = typeof record.extra_json === 'string' ? JSON.parse(record.extra_json) : record.extra_json;
+            }
+        } catch (e) {}
+        var cr = extra.calc_result;
+        if (!cr) {
+            $('#detail-calc-history').hide();
+            return;
+        }
+        var standardLabel = cr.standard === 'national' ? '国标' : '外标';
+        var sign = cr.diff > 0 ? '+' : '';
+        var rateClass = cr.rate > 0 ? 'text-danger' : (cr.rate < 0 ? 'text-success' : '');
+        var badgeClass = cr.rate > 0 ? 'badge-danger' : (cr.rate < 0 ? 'badge-success' : 'badge-secondary');
+        var labelText = cr.rate > 0 ? '涨尺' : (cr.rate < 0 ? '缩尺' : '持平');
+
+        var html = '<strong>上次计算结果</strong> <span class="badge badge-info">' + standardLabel + '</span>';
+        html += ' <small class="text-muted">(' + (cr.calc_time || '') + ')</small><br>';
+        html += '直径: ' + cr.diameter_used + ' CM | 长度: ' + cr.length_used + ' M<br>';
+        html += '原材积: ' + cr.original_volume.toFixed(4) + ' M³ → 新材积: ' + cr.new_volume.toFixed(4) + ' M³<br>';
+        html += '涨尺量: <strong class="' + rateClass + '">' + sign + cr.diff.toFixed(4) + ' M³</strong>';
+        html += ' | 涨尺率: <strong class="' + rateClass + '">' + sign + cr.rate + '%</strong>';
+        html += ' <span class="badge badge-pill ' + badgeClass + '">' + labelText + '</span>';
+
+        $('#detail-calc-history').removeClass('alert-info alert-success alert-danger alert-secondary')
+            .addClass(cr.rate > 0 ? 'alert-danger' : (cr.rate < 0 ? 'alert-success' : 'alert-secondary'))
+            .html(html).show();
     }
 
     // ========== 字段标签映射（与后端一致） ==========
@@ -707,6 +751,8 @@
             success: function (res) {
                 if (res.ok) {
                     showCalcResult(res);
+                    // 刷新上次计算结果区
+                    refreshCalcHistory();
                 } else {
                     alert(res.error || '计算失败');
                 }
@@ -763,6 +809,22 @@
         html += '</div></div>';
 
         $('#calc-result').html(html).show();
+    }
+
+    // ========== 刷新历史计算结果 ==========
+    function refreshCalcHistory() {
+        var recordId = $('#calc-record-id').val();
+        if (!recordId || !currentFileName) return;
+        $.getJSON(PREFIX + '/search', { q: $('#search-input').val().trim(), file_name: currentFileName }, function (res) {
+            if (res.ok && res.records) {
+                for (var i = 0; i < res.records.length; i++) {
+                    if (res.records[i].id == recordId) {
+                        showSavedCalcResult(res.records[i]);
+                        return;
+                    }
+                }
+            }
+        });
     }
 
     // ========== 删除文件 ==========
