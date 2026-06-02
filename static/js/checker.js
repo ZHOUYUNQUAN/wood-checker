@@ -557,47 +557,110 @@
         $('#calc-result').hide();
         $('#calc-record-id').val(data.id);
 
-        var infoHtml = '';
-        infoHtml += '<div class="col-md-4"><small class="text-muted">顺序编号</small><br><strong>' + escapeHtml(data.no) + '</strong></div>';
-        infoHtml += '<div class="col-md-4"><small class="text-muted">材种编码</small><br><strong>' + escapeHtml(data.especie) + '</strong></div>';
-        infoHtml += '<div class="col-md-4"><small class="text-muted">英文代码</small><br><strong>' + escapeHtml(data.english_code) + '</strong></div>';
-        infoHtml += '<div class="col-md-4 mt-2"><small class="text-muted">客户</small><br><strong>' + escapeHtml(data.customer) + '</strong></div>';
-        infoHtml += '<div class="col-md-4 mt-2"><small class="text-muted">综合直径 (CM)</small><br><strong>' + data.diameter_avg + '</strong></div>';
-        infoHtml += '<div class="col-md-4 mt-2"><small class="text-muted">原始长度 (M)</small><br><strong>' + data.length_m + '</strong></div>';
-        infoHtml += '<div class="col-md-4 mt-2"><small class="text-muted">原始材积 (M³)</small><br><strong class="text-primary">' + data.volume_m3 + '</strong></div>';
-        $('#detail-info').html(infoHtml);
-
-        // 检尺直径区
+        // 获取完整记录以读取 extra_json，用于判断哪些字段被映射
         $.getJSON(PREFIX + '/search', { q: data.no, file_name: currentFileName }, function (res) {
+            var full = null;
             if (res.ok && res.records) {
-                var full = null;
                 for (var i = 0; i < res.records.length; i++) {
                     if (res.records[i].id == data.id) {
                         full = res.records[i];
                         break;
                     }
                 }
-                if (full) {
-                    var dHtml = '';
-                    dHtml += '<div class="col-md-3"><small class="text-muted">检尺1</small><br><strong>' + (full.diameter_1 || '-') + '</strong></div>';
-                    dHtml += '<div class="col-md-3"><small class="text-muted">检尺2</small><br><strong>' + (full.diameter_2 || '-') + '</strong></div>';
-                    dHtml += '<div class="col-md-3"><small class="text-muted">检尺3</small><br><strong>' + (full.diameter_3 || '-') + '</strong></div>';
-                    dHtml += '<div class="col-md-3"><small class="text-muted">检尺4</small><br><strong>' + (full.diameter_4 || '-') + '</strong></div>';
-                    dHtml += '<div class="col-md-3 mt-2"><small class="text-muted">是否转口</small><br><strong>' + (full.is_transshipment ? '是' : '否') + '</strong></div>';
-                    $('#detail-diameters').html(dHtml);
-                }
             }
-        });
+            // 合并行数据与完整记录
+            var record = full || data;
+            var mapped = getMappedFields(record);
 
-        $('#calc-length').attr('placeholder', '默认 ' + data.length_m);
-        $('#calc-diameter').attr('placeholder', '默认 ' + data.diameter_avg);
-        $('#calc-length').val('');
-        $('#calc-diameter').val('');
+            // 基本信息区 —— 只渲染映射到的字段
+            var infoHtml = '';
+            var infoFields = ['no', 'especie', 'english_code', 'customer', 'diameter_avg', 'length_m', 'volume_m3'];
+            for (var i = 0; i < infoFields.length; i++) {
+                var f = infoFields[i];
+                if (mapped.indexOf(f) === -1) continue;
+                var def = FIELD_LABELS[f];
+                var val = record[f];
+                var display = (val == null || val === '') ? '-' : val;
+                if (def.unit && display !== '-') display += ' ' + def.unit;
+                var cls = 'col-md-4';
+                if (i > 2) cls += ' mt-2';
+                var textClass = def.highlight ? 'text-primary' : '';
+                infoHtml += '<div class="' + cls + '"><small class="text-muted">' + def.label + '</small><br><strong class="' + textClass + '">' + escapeHtml(String(display)) + '</strong></div>';
+            }
+            $('#detail-info').html(infoHtml || '<p class="text-muted">未映射任何字段</p>');
+
+            // 检尺直径区 —— 只在映射了 D1~D4、是否转口中至少一个时显示
+            var diaFields = ['diameter_1', 'diameter_2', 'diameter_3', 'diameter_4', 'is_transshipment'];
+            var hasDia = false;
+            for (var j = 0; j < diaFields.length; j++) {
+                if (mapped.indexOf(diaFields[j]) !== -1) { hasDia = true; break; }
+            }
+            if (hasDia) {
+                var dHtml = '';
+                for (var k = 0; k < diaFields.length; k++) {
+                    var df = diaFields[k];
+                    if (mapped.indexOf(df) === -1) continue;
+                    var dDef = FIELD_LABELS[df];
+                    var dVal = record[df];
+                    var dDisplay;
+                    if (dDef.format) {
+                        dDisplay = dDef.format(dVal);
+                    } else {
+                        dDisplay = (dVal != null && dVal !== '') ? dVal : '-';
+                    }
+                    dHtml += '<div class="col-md-3"><small class="text-muted">' + dDef.label + '</small><br><strong>' + escapeHtml(String(dDisplay)) + '</strong></div>';
+                }
+                $('#detail-diameters').html(dHtml);
+                $('#detail-diameters-section').show();
+            } else {
+                $('#detail-diameters').empty();
+                $('#detail-diameters-section').hide();
+            }
+
+            // 计算区 placeholder
+            $('#calc-length').attr('placeholder', '默认 ' + record.length_m);
+            var diaPlaceholder = '默认 ' + record.diameter_avg;
+            // 如果映射了 D1~D4，展示它们作为提示
+            var mappedDiams = [];
+            if (mapped.indexOf('diameter_1') !== -1) mappedDiams.push(record.diameter_1);
+            if (mapped.indexOf('diameter_2') !== -1) mappedDiams.push(record.diameter_2);
+            if (mapped.indexOf('diameter_3') !== -1) mappedDiams.push(record.diameter_3);
+            if (mapped.indexOf('diameter_4') !== -1) mappedDiams.push(record.diameter_4);
+            if (mappedDiams.length >= 2) {
+                diaPlaceholder = '如 ' + mappedDiams.join(', ');
+            }
+            $('#calc-diameters').attr('placeholder', diaPlaceholder);
+            $('#calc-length').val('');
+            $('#calc-diameters').val('');
+        });
     }
 
-    // ========== 取消选择 ==========
-    function deselectRecord() {
-        $('#detail-modal').modal('hide');
+    // ========== 字段标签映射（与后端一致） ==========
+    var FIELD_LABELS = {
+        'no':              { label: '顺序编号', group: 'info' },
+        'especie':         { label: '材种编码', group: 'info' },
+        'english_code':    { label: '英文代码', group: 'info' },
+        'customer':        { label: '客户',     group: 'info' },
+        'diameter_avg':    { label: '综合直径', group: 'info', unit: 'CM' },
+        'length_m':        { label: '原始长度', group: 'info', unit: 'M' },
+        'volume_m3':       { label: '原始材积', group: 'info', unit: 'M³', highlight: true },
+        'diameter_1':      { label: '检尺1',    group: 'diameter' },
+        'diameter_2':      { label: '检尺2',    group: 'diameter' },
+        'diameter_3':      { label: '检尺3',    group: 'diameter' },
+        'diameter_4':      { label: '检尺4',    group: 'diameter' },
+        'is_transshipment':{ label: '是否转口', group: 'diameter', format: function(v) { return v ? '是' : '否'; } }
+    };
+
+    // ========== 获取记录的映射字段（向前兼容） ==========
+    function getMappedFields(record) {
+        var extra = {};
+        try {
+            if (record.extra_json) {
+                extra = typeof record.extra_json === 'string' ? JSON.parse(record.extra_json) : record.extra_json;
+            }
+        } catch (e) {}
+        // 有 mapped_fields 则用它过滤，否则显示全部字段（向前兼容旧数据）
+        return extra.mapped_fields || Object.keys(FIELD_LABELS);
     }
 
     // ========== 材积计算 ==========
@@ -605,11 +668,25 @@
         var recordId = $('#calc-record-id').val();
         var standard = $('#calc-standard').val();
         var lengthVal = $('#calc-length').val();
-        var diameterVal = $('#calc-diameter').val();
+        var diametersVal = $('#calc-diameters').val();
 
         if (!recordId) {
             alert('请先选择一根木材');
             return;
+        }
+
+        // 解析逗号分隔的直径（同时支持中英文逗号）
+        var diameters = null;
+        if (diametersVal && diametersVal.trim()) {
+            var parts = diametersVal.split(/[,，]/);
+            diameters = [];
+            for (var i = 0; i < parts.length; i++) {
+                var num = parseFloat(parts[i].trim());
+                if (!isNaN(num)) {
+                    diameters.push(num);
+                }
+            }
+            if (diameters.length === 0) diameters = null;
         }
 
         var payload = {
@@ -617,7 +694,7 @@
             file_name: currentFileName,
             standard: standard,
             length: lengthVal ? parseFloat(lengthVal) : null,
-            diameter: diameterVal ? parseFloat(diameterVal) : null
+            diameters: diameters
         };
 
         $('#calc-btn').prop('disabled', true).text('计算中...');

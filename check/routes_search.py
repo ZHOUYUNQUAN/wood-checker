@@ -73,7 +73,8 @@ def calc():
     file_name = data.get('file_name', '').strip()
     standard = data.get('standard', '').strip()
     length = data.get('length')
-    diameter = data.get('diameter')
+    diameters = data.get('diameters')  # 数组，如 [86, 88] 或 [86, 88, 90, 92]
+    diameter = data.get('diameter')    # 兼容旧版单值
 
     if not record_id:
         return jsonify({'ok': False, 'error': '缺少 record_id'}), 400
@@ -109,7 +110,15 @@ def calc():
     else:
         length = row['length_m'] or 0.0
 
-    if diameter is not None:
+    # 多直径取平均值（兼容旧版单值 diameter 参数）
+    if diameters and isinstance(diameters, list) and len(diameters) > 0:
+        try:
+            vals = [float(d) for d in diameters]
+            diameter = sum(vals) / len(vals)
+            diameter = round(diameter, 1)
+        except (ValueError, TypeError):
+            diameter = row['diameter_avg'] or 0.0
+    elif diameter is not None:
         try:
             diameter = float(diameter)
         except (ValueError, TypeError):

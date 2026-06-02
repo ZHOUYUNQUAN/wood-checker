@@ -2,6 +2,7 @@
 木材检尺对比系统 - 上传相关路由
 处理 Excel 上传、文件管理（删除/重命名）等
 """
+import json
 import logging
 import os
 from datetime import datetime
@@ -217,7 +218,8 @@ def upload_confirm():
                 length_m REAL,
                 volume_m3 REAL,
                 customer TEXT,
-                is_transshipment INTEGER DEFAULT 0
+                is_transshipment INTEGER DEFAULT 0,
+                extra_json TEXT DEFAULT '{{}}'
             )
         ''')
 
@@ -227,19 +229,25 @@ def upload_confirm():
 
         upload_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
+        # 记录映射了哪些字段
+        mapped_fields = sorted(col_mapping.keys())
+        extra_json = json.dumps({'mapped_fields': mapped_fields}, ensure_ascii=False)
+
         # 批量插入数据
         for rec in records:
             cursor.execute(f'''
                 INSERT INTO "{table_name}"
                     (no, especie, english_code,
                      diameter_1, diameter_2, diameter_3, diameter_4,
-                     diameter_avg, length_m, volume_m3, customer, is_transshipment)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     diameter_avg, length_m, volume_m3, customer, is_transshipment,
+                     extra_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 rec['no'], rec['especie'], rec['english_code'],
                 rec['diameter_1'], rec['diameter_2'], rec['diameter_3'], rec['diameter_4'],
                 rec['diameter_avg'], rec['length_m'], rec['volume_m3'],
                 rec['customer'], rec['is_transshipment'],
+                extra_json,
             ))
 
         # 写入 registry
