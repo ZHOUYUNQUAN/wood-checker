@@ -1,0 +1,32 @@
+# SQLite database
+checker.db
+checker.db-*
+*.db-journal
+
+# Uploaded files
+uploads/
+
+# Logs
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Environment
+.env
+.env.local
