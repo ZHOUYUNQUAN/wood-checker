@@ -11,7 +11,7 @@ from flask import render_template, request, jsonify, current_app
 from werkzeug.utils import secure_filename
 import openpyxl
 
-from models import get_db
+from models import get_db, _validate_table_name
 from . import check_bp
 
 # ========== 常量 ==========
@@ -387,8 +387,10 @@ def upload_confirm():
     cursor.execute('SELECT table_name FROM file_registry WHERE id = ?', (file_key,))
     old = cursor.fetchone()
     if old:
+        _validate_table_name(old['table_name'])
         cursor.execute(f'DROP TABLE IF EXISTS "{old["table_name"]}"')
 
+    _validate_table_name(table_name)
     # 创建独立数据表
     cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS "{table_name}" (
@@ -471,6 +473,7 @@ def search():
     if file_name:
         table_name, in_registry = _resolve_table(cursor, file_name)
         if in_registry and table_name:
+            _validate_table_name(table_name)
             cursor.execute(f'SELECT * FROM "{table_name}" WHERE no LIKE ? ORDER BY no LIMIT 200', (f'%{q}%',))
         else:
             cursor.execute('''
@@ -517,6 +520,7 @@ def calc():
     if file_name:
         table_name, in_registry = _resolve_table(cursor, file_name)
         if in_registry and table_name:
+            _validate_table_name(table_name)
             cursor.execute(f'SELECT * FROM "{table_name}" WHERE id = ?', (record_id,))
         else:
             cursor.execute('SELECT * FROM code_sheets WHERE id = ?', (record_id,))
@@ -598,6 +602,7 @@ def delete_file():
 
     if reg_row:
         table_name = reg_row['table_name']
+        _validate_table_name(table_name)
         cursor.execute(f'SELECT COUNT(*) as cnt FROM "{table_name}"')
         count = cursor.fetchone()['cnt']
         cursor.execute(f'DROP TABLE IF EXISTS "{table_name}"')

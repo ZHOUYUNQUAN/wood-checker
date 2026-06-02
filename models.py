@@ -1,14 +1,26 @@
+import re
 import sqlite3
 
 from config import Config
 
+# 允许的表名格式：code_sheets、sheets_YYYYMMDD_xxxxxxxx、idx_sheets_YYYYMMDD_xxxxxxxx_no
+_VALID_TABLE_RE = re.compile(r'^(code_sheets|sheets_\d{8}_[0-9a-f]{8}|idx_sheets_\d{8}_[0-9a-f]{8}_no)$')
+
+
+def _validate_table_name(table_name):
+    """校验表名是否为系统生成的已知格式，防止 SQL 注入"""
+    if not _VALID_TABLE_RE.match(table_name):
+        raise ValueError(f'无效的表名: {table_name}')
+
 
 def _has_column(cursor, table_name, column_name):
+    _validate_table_name(table_name)
     cursor.execute(f'PRAGMA table_info("{table_name}")')
     return any(row['name'] == column_name for row in cursor.fetchall())
 
 
 def _add_column_if_missing(cursor, table_name, column_name, column_sql):
+    _validate_table_name(table_name)
     if not _has_column(cursor, table_name, column_name):
         cursor.execute(f'ALTER TABLE "{table_name}" ADD COLUMN {column_sql}')
 
