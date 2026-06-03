@@ -397,6 +397,7 @@
                     showSearchCard(res.file_name);
                     refreshFileList();
                     showUploadStatus(res.message, 'text-success');
+                    collapsePanel();
                 } else {
                     $('#col-status').removeClass().addClass('text-danger').text(res.error || '解析失败');
                 }
@@ -457,6 +458,17 @@
         $('#calc-result').hide();
         $('#search-input').val('');
         $('#search-status').empty();
+        collapsePanel();
+    }
+
+    // ========== 面板折叠 ==========
+    function collapsePanel() {
+        var panel = $('#data-panel');
+        if (panel.is(':visible')) {
+            panel.slideUp(200);
+            $('#toggle-panel-icon').html('&#9654;');
+            $('#toggle-panel-text').text('展开');
+        }
     }
 
     // ========== 显示搜索区 ==========
