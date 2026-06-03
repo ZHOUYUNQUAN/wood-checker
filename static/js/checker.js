@@ -207,30 +207,37 @@
         { field: 'diameter_avg',    label: '综合直径' },
         { field: 'length_m',        label: '长度' },
         { field: 'volume_m3',       label: '材积' },
-        { field: 'customer',        label: '客户' },
+        { field: 'customer',        label: '供应商/基地' },
         { field: 'is_transshipment',label: '是否转口' },
     ];
 
     // ========== 关键词自动匹配 ==========
     var FIELD_KEYWORDS = [
-        { field: 'no',              kw: ['编号', '码单号', '序号', '顺序', 'no.', 'NO.', '号码'] },
+        { field: 'no',              kw: ['编号', '码单号', '序号', '顺序', 'no.', 'NO.', '号码', '根号', 'N°', 'No.', '国内', 'N°-de'] },
         { field: 'diameter_1',      kw: ['径1', '直径1', '检尺1', '小头1', '径一', 'D1'] },
         { field: 'diameter_2',      kw: ['径2', '直径2', '检尺2', '小头2', '径二', 'D2'] },
         { field: 'diameter_3',      kw: ['径3', '直径3', '检尺3', '径三', 'D3'] },
         { field: 'diameter_4',      kw: ['径4', '直径4', '检尺4', '径四', 'D4'] },
-        { field: 'diameter_avg',    kw: ['平均径', '综合径', '平均直径', '综合直径', '径级'] },
-        { field: 'length_m',        kw: ['长度(m)', '长度(M)', '长度', 'length', '长(M)', '长(m)'] },
-        { field: 'volume_m3',       kw: ['材积(m', '材积(M', '材积', '体积', 'm3', 'M3', '立方'] },
-        { field: 'especie',         kw: ['材种', '树种', '木种', '品种', 'especie', '品名', '木材名称'] },
+        { field: 'diameter_avg',    kw: ['平均径', '综合径', '平均直径', '综合直径', '径级', 'diamètre', 'diameter', 'diametro', 'Diamètre', 'Diameter'] },
+        { field: 'length_m',        kw: ['长度(m)', '长度(M)', '长度', 'length', '长(M)', '长(m)', 'long', 'largo', 'Long', 'Largo', 'réel'] },
+        { field: 'volume_m3',       kw: ['材积(m', '材积(M', '材积', '体积', 'm3', 'M3', '立方', 'volume', 'volumen', 'Volume', 'Volumen'] },
+        { field: 'especie',         kw: ['材种', '树种', '木种', '品种', 'especie', '品名', '木材名称', 'essence', 'Essence', '名称'] },
         { field: 'english_code',    kw: ['英文', '代码', 'code', 'english', '代号', '编码'] },
-        { field: 'customer',        kw: ['客户', '买主', '买方', 'customer', '公司', '收货单位', '单位'] },
+        { field: 'customer',        kw: ['客户', '买主', '买方', 'customer', '公司', '收货单位', '单位', '基地', '供应商', 'supplier', 'Permis'] },
         { field: 'is_transshipment',kw: ['转口', '中转', '转运', 'trans', '是否转'] },
         // 直径兜底（最后匹配）
-        { field: 'diameter_avg',    kw: ['直径', '径'] },
+        { field: 'diameter_avg',    kw: ['直径', '径', 'diamètre', 'diameter'] },
     ];
 
     function detectColumn(header) {
         if (!header) return null;
+        // 纯数字表头（如 "1","2","3","4"）→ 匹配 diameter_1~4
+        var trimmed = header.trim();
+        if (trimmed === '1') return 'diameter_1';
+        if (trimmed === '2') return 'diameter_2';
+        if (trimmed === '3') return 'diameter_3';
+        if (trimmed === '4') return 'diameter_4';
+
         var h = header.toLowerCase();
         // 先匹配精确关键词（排除兜底的直径/径）
         for (var i = 0; i < FIELD_KEYWORDS.length - 1; i++) {
@@ -684,7 +691,7 @@
         'no':              { label: '顺序编号', group: 'info' },
         'especie':         { label: '材种编码', group: 'info' },
         'english_code':    { label: '英文代码', group: 'info' },
-        'customer':        { label: '客户',     group: 'info' },
+        'customer':        { label: '供应商/基地', group: 'info' },
         'diameter_avg':    { label: '综合直径', group: 'info', unit: 'CM' },
         'length_m':        { label: '原始长度', group: 'info', unit: 'M' },
         'volume_m3':       { label: '原始材积', group: 'info', unit: 'M³', highlight: true },
