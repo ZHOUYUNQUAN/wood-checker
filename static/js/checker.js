@@ -131,8 +131,15 @@
 
         // 导出按钮
         $('#export-btn').on('click', function () {
+            if (!currentFileName) return;
+            showExportPreview();
+        });
+
+        // 导出确认按钮
+        $('#export-confirm-btn').on('click', function () {
             if (currentFileName) {
                 window.open(PREFIX + '/export?file_name=' + encodeURIComponent(currentFileName), '_blank');
+                $('#export-preview-modal').modal('hide');
             }
         });
 
@@ -914,6 +921,56 @@
             complete: function () {
                 $('#rename-submit-btn').prop('disabled', false).text('保存');
             }
+        });
+    }
+
+    // ========== 导出预览 ==========
+    function showExportPreview() {
+        $('#export-preview-info').text('正在加载...');
+        $('#export-preview-tbody').empty();
+        $('#export-preview-table').show();
+        $('#export-preview-empty').hide();
+        $('#export-confirm-btn').prop('disabled', true);
+        $('#export-preview-modal').modal('show');
+
+        $.getJSON(PREFIX + '/export_preview', { file_name: currentFileName }, function (res) {
+            if (!res.ok) {
+                $('#export-preview-info').text('');
+                $('#export-preview-table').hide();
+                $('#export-preview-empty').show().text(res.error || '加载失败');
+                return;
+            }
+            $('#export-preview-info').text('共 ' + res.count + ' 条已计算的记录，确认后导出 CSV');
+            if (!res.rows || res.rows.length === 0) {
+                $('#export-preview-table').hide();
+                $('#export-preview-empty').show();
+                return;
+            }
+            var tbody = $('#export-preview-tbody');
+            for (var i = 0; i < res.rows.length; i++) {
+                var r = res.rows[i];
+                var sign = r.diff > 0 ? '+' : '';
+                var rateClass = r.rate > 0 ? 'text-danger' : (r.rate < 0 ? 'text-success' : '');
+                var tr = $('<tr></tr>');
+                tr.append('<td>' + escapeHtml(r.no) + '</td>');
+                tr.append('<td>' + escapeHtml(r.especie) + '</td>');
+                tr.append('<td>' + escapeHtml(r.english_code) + '</td>');
+                tr.append('<td>' + (r.original_diameter || '-') + '</td>');
+                tr.append('<td>' + (r.original_length || '-') + '</td>');
+                tr.append('<td>' + (r.original_volume != null ? r.original_volume.toFixed(4) : '-') + '</td>');
+                tr.append('<td>' + (r.new_volume != null ? r.new_volume.toFixed(4) : '-') + '</td>');
+                tr.append('<td class="' + rateClass + '">' + sign + (r.diff != null ? r.diff.toFixed(4) : '-') + '</td>');
+                tr.append('<td class="' + rateClass + '">' + sign + (r.rate != null ? r.rate : '-') + '</td>');
+                tr.append('<td>' + escapeHtml(r.standard) + '</td>');
+                tr.append('<td>' + (r.diameter_used || '-') + '</td>');
+                tr.append('<td>' + (r.length_used || '-') + '</td>');
+                tbody.append(tr);
+            }
+            $('#export-confirm-btn').prop('disabled', false);
+        }).fail(function () {
+            $('#export-preview-info').text('');
+            $('#export-preview-table').hide();
+            $('#export-preview-empty').show().text('加载失败');
         });
     }
 

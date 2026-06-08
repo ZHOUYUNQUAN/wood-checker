@@ -195,51 +195,13 @@ def calc():
 @check_bp.route('/export')
 def export_csv():
     """导出当前文件中所有计算过的记录为 CSV"""
-    import csv
-    import io
-
     file_name = request.args.get('file_name', '').strip()
-    if not file_name:
-        return jsonify({'ok': False, 'error': '缺少 file_name'}), 400
+    preview_data = get_export_preview_data(file_name)
 
-    with get_db() as conn:
-        cursor = conn.cursor()
-        table_name, in_registry = resolve_table(cursor, file_name)
-        if in_registry and table_name:
-            _validate_table_name(table_name)
-            cursor.execute(f'SELECT * FROM "{table_name}"')
-        else:
-            cursor.execute('SELECT * FROM code_sheets WHERE file_name = ?', (file_name,))
-        rows = cursor.fetchall()
+    if preview_data is None:
+        return jsonify({'ok': False, 'error': '缺少 file_name' if not file_name else '没有已计算过的记录'}), 400 if not file_name else 404
 
-    # 筛选有 calc_result 的记录
-    output_rows = []
-    for row in rows:
-        extra = {}
-        try:
-            raw = row['extra_json']
-            if raw:
-                extra = json.loads(raw) if isinstance(raw, str) else raw
-        except (json.JSONDecodeError, TypeError):
-            pass
-        cr = extra.get('calc_result')
-        if not cr:
-            continue
-        output_rows.append({
-            'no': row['no'] or '',
-            'especie': row['especie'] or '',
-            'english_code': row['english_code'] or '',
-            'original_diameter': row['diameter_avg'] or '',
-            'original_length': row['length_m'] or '',
-            'original_volume': cr.get('original_volume', 0),
-            'new_volume': cr.get('new_volume', 0),
-            'diff': cr.get('diff', 0),
-            'rate': cr.get('rate', 0),
-            'standard': '国标' if cr.get('standard') == 'national' else '外标',
-            'diameter_used': cr.get('diameter_used', ''),
-            'length_used': cr.get('length_used', ''),
-        })
-
+    output_rows = preview_data.get('rows', [])
     if not output_rows:
         return jsonify({'ok': False, 'error': '没有已计算过的记录'}), 404
 
@@ -271,3 +233,63 @@ def export_csv():
             'Content-Disposition': f"attachment; filename*=UTF-8''{quote(filename)}",
         },
     )
+
+
+def get_export_preview_data(file_name):
+    """获取导出数据，返回 dict 或 None"""
+    if not file_name:
+        return None
+    with get_db() as conn:
+        cursor = conn.cursor()
+        table_name, in_registry = resolve_table(cursor, file_name)
+        if in_registry and table_name:
+            _validate_table_name(table_name)
+            cursor.execute(f'SELECT * FROM "{table_name}"')
+        else:
+            cursor.execute('SELECT * FROM code_sheets WHERE file_name = ?', (file_name,))
+        rows = cursor.fetchall()
+
+    output_rows = []
+    for row in rows:
+        extra = {}
+        try:
+            raw = row['extra_json']
+            if raw:
+                extra = json.loads(raw) if isinstance(raw, str) else raw
+        except (json.JSONDecodeError, TypeError):
+            pass
+        cr = extra.get('calc_result')
+        if not cr:
+            continue
+        output_rows.append({
+            'no': row['no'] or '',
+            'especie': row['especie'] or '',
+            'english_code': row['english_code'] or '',
+            'original_diameter': row['diameter_avg'] or '',
+            'original_length': row['length_m'] or '',
+            'original_volume': cr.get('original_volume', 0),
+            'new_volume': cr.get('new_volume', 0),
+            'diff': cr.get('diff', 0),
+            'rate': cr.get('rate', 0),
+            'standard': '国标' if cr.get('standard') == 'national' else '外标',
+            'diameter_used': cr.get('diameter_used', ''),
+            'length_used': cr.get('length_used', ''),
+        })
+
+    if not output_rows:
+        return None
+    return {'rows': output_rows, 'count': len(output_rows)}
+
+
+@check_bp.route('/export_preview')
+def export_preview():
+    """预览导出数据（JSON），用于导出前查看内容"""
+    file_name = request.args.get('file_name', '').strip()
+    if not file_name:
+        return jsonify({'ok': False, 'error': '缺少 file_name'}), 400
+
+    preview_data = get_export_preview_data(file_name)
+    if preview_data is None:
+        return jsonify({'ok': False, 'error': '没有已计算过的记录'}), 404
+
+    return jsonify({'ok': True, 'rows': preview_data['rows'], 'count': preview_data['count']})
