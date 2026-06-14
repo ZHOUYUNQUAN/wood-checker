@@ -2,28 +2,313 @@
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover">
     <title>{% block title %}木材检尺对比系统{% endblock %}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/css/bootstrap.min.css">
     <style>
-        body {
-            background: #f6f7f9;
+        /* ====== 字体与基础 ====== */
+        :root {
+            --font-system: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+            --font-mono: "SF Mono", "Fira Code", "Fira Mono", "Menlo", "Consolas", monospace;
         }
+
+        html {
+            font-size: 15px;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+
+        body {
+            background: #f2f3f5;
+            font-family: var(--font-system);
+            color: #1d1d1f;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            letter-spacing: 0.01em;
+            line-height: 1.6;
+            min-width: 320px;
+        }
+
         .app-shell {
             max-width: 1180px;
             margin: 0 auto;
-            padding: 24px 16px 48px;
+            padding: 16px 12px 48px;
         }
+
         .app-header {
-            margin-bottom: 18px;
+            margin-bottom: 12px;
         }
+        .app-header h1 {
+            font-weight: 600;
+            font-size: 1.35rem;
+            letter-spacing: 0.02em;
+        }
+        .app-header .text-muted {
+            font-size: 0.85rem;
+        }
+
+        /* ====== 卡片 ====== */
         .card {
-            border-radius: 6px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            border-radius: 8px;
+            border: 1px solid rgba(0,0,0,0.06);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            margin-bottom: 12px;
         }
+        .card-header {
+            font-size: 0.95rem;
+            padding: 10px 14px;
+            background: #fafbfc;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+        }
+        .card-body {
+            padding: 14px;
+        }
+
+        /* ====== 触摸友好 ====== */
+        .btn {
+            font-size: 0.9rem;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            min-height: 38px;
+            padding: 6px 14px;
+            border-radius: 6px;
+            transition: background-color 0.15s, box-shadow 0.15s;
+        }
+        .btn-sm {
+            font-size: 0.82rem;
+            min-height: 34px;
+            padding: 4px 12px;
+            border-radius: 5px;
+        }
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        .form-control,
+        .custom-file-label {
+            font-size: 0.92rem;
+            min-height: 40px;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+        .form-control-sm {
+            font-size: 0.85rem;
+            min-height: 36px;
+            padding: 5px 10px;
+        }
+
+        /* ====== 表格 ====== */
         .table th,
         .table td {
             vertical-align: middle;
+            font-size: 0.9rem;
+            padding: 10px 12px;
+        }
+        .table thead th {
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: none;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+        }
+
+        /* ====== 模态框 ====== */
+        .modal-content {
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+        }
+        .modal-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+        }
+        .modal-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+        }
+        .modal-body {
+            padding: 18px;
+        }
+        .modal-footer {
+            padding: 12px 18px;
+            border-top: 1px solid rgba(0,0,0,0.06);
+        }
+
+        /* ====== 搜索输入组 ====== */
+        .input-group .form-control {
+            border-right: none;
+        }
+        .input-group-append .btn {
+            border-radius: 0 6px 6px 0;
+        }
+
+        /* ====== 文件列表项 ====== */
+        .file-item {
+            transition: background-color 0.12s;
+        }
+        .file-item:hover {
+            background-color: rgba(0,120,255,0.03);
+        }
+
+        /* ====== 表格容器优化 ====== */
+        .table-scroll-wrap {
+            -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
+        }
+
+        /* ====== 信息徽章 ====== */
+        .badge-pill {
+            font-weight: 500;
+            letter-spacing: 0.02em;
+        }
+
+        /* ====== 移动端媒体查询 (< 768px) ====== */
+        @media (max-width: 767.98px) {
+            html {
+                font-size: 16px;  /* 防止 iOS 缩放 */
+            }
+
+            .app-shell {
+                padding: 10px 8px 40px;
+            }
+            .app-header {
+                margin-bottom: 10px;
+            }
+            .app-header h1 {
+                font-size: 1.25rem;
+            }
+
+            .card {
+                border-radius: 6px;
+                margin-bottom: 10px;
+            }
+            .card-header {
+                padding: 10px 12px;
+                font-size: 0.9rem;
+            }
+            .card-body {
+                padding: 10px 12px;
+            }
+
+            .btn {
+                min-height: 42px;
+                padding: 8px 16px;
+                font-size: 0.9rem;
+                width: 100%;
+                margin-bottom: 4px;
+            }
+            .btn-sm {
+                min-height: 36px;
+                padding: 6px 12px;
+                font-size: 0.82rem;
+                width: auto;
+            }
+
+            .form-control {
+                min-height: 44px;
+                padding: 10px 12px;
+                font-size: 1rem;
+            }
+
+            .table th,
+            .table td {
+                font-size: 0.85rem;
+                padding: 8px 10px;
+            }
+            .table thead th {
+                font-size: 0.75rem;
+            }
+
+            /* 模态框全屏 */
+            .modal-dialog {
+                margin: 0;
+                max-width: 100%;
+                height: 100%;
+            }
+            .modal-content {
+                border-radius: 0;
+                min-height: 100vh;
+                box-shadow: none;
+            }
+            .modal-header {
+                padding: 12px 14px;
+            }
+            .modal-body {
+                padding: 14px;
+            }
+            .modal-footer {
+                padding: 10px 14px;
+            }
+            .modal-footer .btn {
+                width: auto;
+                flex: 1;
+            }
+
+            /* 表格横向滚动 */
+            .table-responsive {
+                -webkit-overflow-scrolling: touch;
+                margin: 0 -12px;
+                padding: 0 12px;
+                border: none;
+            }
+
+            /* 文件列表：按钮紧凑排列 */
+            .file-item {
+                flex-wrap: wrap;
+            }
+            .file-item .flex-grow-1 {
+                flex: 1 1 100%;
+                margin-bottom: 6px;
+            }
+            .file-item .btn-sm {
+                flex: 0 0 auto;
+                margin-right: 6px !important;
+                margin-bottom: 2px;
+            }
+
+            /* 输入组 */
+            .input-group {
+                flex-wrap: nowrap;
+            }
+            .input-group .form-control {
+                flex: 1 1 auto;
+            }
+            .input-group-append .btn {
+                width: auto;
+                min-width: 60px;
+                margin-bottom: 0;
+            }
+
+            /* 上传区 */
+            .custom-file-label {
+                min-height: 44px;
+                padding: 10px 12px;
+                line-height: 1.5;
+            }
+        }
+
+        /* ====== 小屏手机优化 (< 400px) ====== */
+        @media (max-width: 399.98px) {
+            .app-shell {
+                padding: 8px 6px 36px;
+            }
+            .card-body {
+                padding: 8px 10px;
+            }
+            .card-header {
+                padding: 8px 10px;
+            }
+
+            .btn {
+                min-height: 44px;
+                padding: 10px 14px;
+            }
+
+            .table th,
+            .table td {
+                padding: 6px 8px;
+                font-size: 0.8rem;
+            }
         }
     </style>
     {% block extra_css %}{% endblock %}

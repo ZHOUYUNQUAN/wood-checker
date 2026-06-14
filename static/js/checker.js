@@ -41,6 +41,15 @@
             if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
         });
 
+
+        // 搜索框聚焦时自动收起数据面板，滚动到搜索区
+        $("#search-input").on("focus", function () {
+            collapsePanel();
+            setTimeout(function () {
+                var card = document.getElementById("search-card");
+                if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 250);
+        });
         // 计算表单提交
         $('#calc-form').on('submit', function (e) {
             e.preventDefault();
@@ -483,6 +492,10 @@
         $('#search-card').show();
         $('#current-file-label').text('当前文件: ' + filename);
         $('#export-btn').show();
+        // 自动聚焦搜索框，让用户可以直接输入
+        setTimeout(function () {
+            $("#search-input").trigger("focus");
+        }, 300);
     }
 
     // ========== 搜索 ==========
@@ -598,7 +611,7 @@
                 var val = record[f];
                 var display = (val == null || val === '') ? '-' : val;
                 if (def.unit && display !== '-') display += ' ' + def.unit;
-                var cls = 'col-md-4';
+                var cls = 'col-6 col-md-4';
                 if (i > 2) cls += ' mt-2';
                 var textClass = def.highlight ? 'text-primary' : '';
                 infoHtml += '<div class="' + cls + '"><small class="text-muted">' + def.label + '</small><br><strong class="' + textClass + '">' + escapeHtml(String(display)) + '</strong></div>';
@@ -624,7 +637,7 @@
                     } else {
                         dDisplay = (dVal != null && dVal !== '') ? dVal : '-';
                     }
-                    dHtml += '<div class="col-md-3"><small class="text-muted">' + dDef.label + '</small><br><strong>' + escapeHtml(String(dDisplay)) + '</strong></div>';
+                    dHtml += '<div class="col-6 col-md-3"><small class="text-muted">' + dDef.label + '</small><br><strong>' + escapeHtml(String(dDisplay)) + '</strong></div>';
                 }
                 $('#detail-diameters').html(dHtml);
                 $('#detail-diameters-section').show();
